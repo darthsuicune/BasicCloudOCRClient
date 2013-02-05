@@ -1,4 +1,4 @@
-package com.abbyy.basiccloudclient;
+package com.abbyy.basiccloudocrclient;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,7 +23,8 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.abbyy.basiccloudclient.compat.ActionBarActivity;
+import com.abbyy.basiccloudclient.R;
+import com.abbyy.basiccloudocrclient.compat.ActionBarActivity;
 
 public class MainActivity extends ActionBarActivity {
 	private Uri mUri;

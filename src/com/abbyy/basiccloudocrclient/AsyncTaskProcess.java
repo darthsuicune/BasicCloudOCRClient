@@ -1,4 +1,4 @@
-package com.abbyy.basiccloudclient;
+package com.abbyy.basiccloudocrclient;
 
 import android.content.Context;
 import android.os.Bundle;

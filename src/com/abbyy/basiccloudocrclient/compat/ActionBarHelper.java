@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.abbyy.basiccloudclient.compat;
+package com.abbyy.basiccloudocrclient.compat;
 
 import android.app.Activity;
 import android.os.Build;

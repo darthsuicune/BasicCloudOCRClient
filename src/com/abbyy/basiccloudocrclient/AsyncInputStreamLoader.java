@@ -1,4 +1,4 @@
-package com.abbyy.basiccloudclient;
+package com.abbyy.basiccloudocrclient;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
