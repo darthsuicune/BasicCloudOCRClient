@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">BasicCloudClient</string>
+    <string name="upload">Upload</string>
+    <string name="download">Download</string>
+    <string name="menu_settings">Settings</string>
+
+</resources>
