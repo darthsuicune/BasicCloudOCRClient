@@ -1,7 +1,7 @@
 package com.abbyy.basiccloudocrclient;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -12,9 +12,12 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.support.v4.app.LoaderManager.LoaderCallbacks;
+import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
 import android.util.Xml;
 import android.view.Menu;
@@ -23,22 +26,26 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.abbyy.basiccloudclient.R;
 import com.abbyy.basiccloudocrclient.compat.ActionBarActivity;
 
 public class MainActivity extends ActionBarActivity {
+	private static final int LOADER_CONNECTION = 0;
+	private static final int LOADER_PROCESS = 1;
 	private Uri mUri;
+	private String mTaskId;
 	TextView mProgressTextView;
+	Button uploadView;
 	DateFormat mDateFormat = new SimpleDateFormat("yyyy-mm-dd'T'HH:mm:ss'Z'",
 			Locale.GERMANY);
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
 		setContentView(R.layout.activity_main);
 		mProgressTextView = (TextView) findViewById(R.id.progress_text);
-		Button upload = (Button) findViewById(R.id.button_upload);
-		upload.setOnClickListener(new OnClickListener() {
+		uploadView = (Button) findViewById(R.id.button_upload);
+		uploadView.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				pickImage();
@@ -64,25 +71,27 @@ public class MainActivity extends ActionBarActivity {
 			Intent resultIntent) {
 		switch (requestCode) {
 		case 0:
-			mProgressTextView.setText("");
-			mUri = resultIntent.getData();
-			Bundle args = new Bundle();
-			args.putParcelable(AsyncInputStreamLoader.ARGUMENT_FILE_PATH, mUri);
-			getSupportLoaderManager().initLoader(0, args,
-					new ConnectionHelper());
+			if (resultCode == RESULT_OK) {
+				mUri = resultIntent.getData();
+				launchTask();
+			}
 			break;
 		default:
 			break;
 		}
 	}
 
-	private void parseResponse(InputStream stream) {
+	private void parseResponse(String response) {
+		if(response == null || response.equals("")){
+			return;
+		}
+		
 		XmlPullParser parser = Xml.newPullParser();
 		try {
-			parser.setInput(stream, null);
+			parser.setInput(new ByteArrayInputStream(response.getBytes()), null);
 			readData(parser);
 		} catch (XmlPullParserException e) {
-			e.printStackTrace();
+			launchTask();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -97,39 +106,62 @@ public class MainActivity extends ActionBarActivity {
 				continue;
 			}
 			String name = parser.getName();
-			if (name.equals("task")) {
-				String taskId = parser.getAttributeValue(null, "id");
-				String status = parser.getAttributeValue(null, "status");
-				Date registrationTime = getDate(parser.getAttributeValue(null,
-						"registrationTime"));
-				Date statusChangeTime = getDate(parser.getAttributeValue(null,
-						"statusChangeTime"));
-				int estimatedProcessingTime = Integer.parseInt(parser
-						.getAttributeValue(null, "estimatedProcessingTime"));
-				// parser.getAttributeValue(null,
-				// getActivity().getString(R.string.field_status_change_time)),
-				// Integer.parseInt(parser.getAttributeValue(null,
-				// getActivity().getString(R.string.field_files_count))),
-				// Integer.parseInt(parser.getAttributeValue(null,
-				// getActivity().getString(R.string.field_credits))),
-				// Integer.parseInt(parser.getAttributeValue(null,
-				// getActivity().getString(R.string.field_estimated_processing_time))),
-				// parser.getAttributeValue(null,
-				// getActivity().getString(R.string.field_description)),
-				// parser.getAttributeValue(null,
-				// getActivity().getString(R.string.field_result_url)),
-				// parser.getAttributeValue(null,
-				// getActivity().getString(R.string.field_error)),
-
-				mProgressTextView.append("Task " + taskId + " started." + "\n");
-				mProgressTextView.append("Actual status: " + status + "\n");
-				mProgressTextView.append("Estimated time: "
-						+ estimatedProcessingTime + "\n");
+			if (name.equals(getString(R.string.tag_task))) {
+				mTaskId = parser.getAttributeValue(null,
+						getString(R.string.field_id));
+				String status = parser.getAttributeValue(null,
+						getString(R.string.field_status));
+				
 				Bundle args = new Bundle();
-				args.putString(AsyncTaskProcess.ARGUMENT_TASK_ID, taskId);
 				args.putString(AsyncTaskProcess.ARGUMENT_STATUS, status);
-				args.putInt(AsyncTaskProcess.ARGUMENT_PROCESSING_TIME, estimatedProcessingTime);
-				getSupportLoaderManager().initLoader(1, args, new TaskProcessHelper());
+
+				if (!status.equals(getString(R.string.status_completed))) {
+					int estimatedProcessingTime = Integer
+							.parseInt(parser
+									.getAttributeValue(
+											null,
+											getString(R.string.field_estimated_processing_time)));
+					mProgressTextView
+							.append("Task " + mTaskId + " started." + "\n");
+					Date registrationTime = getDate(parser.getAttributeValue(null,
+							getString(R.string.field_registration_time)));
+					mProgressTextView.append("Registered: " + registrationTime + "\n");
+					mProgressTextView.append("Actual status: " + status + "\n");
+					mProgressTextView.append("Estimated time: "
+							+ estimatedProcessingTime + "\n");
+					
+					args.putString(AsyncTaskProcess.ARGUMENT_TASK_ID, mTaskId);
+					args.putInt(AsyncTaskProcess.ARGUMENT_PROCESSING_TIME,
+							estimatedProcessingTime);
+					getSupportLoaderManager().restartLoader(LOADER_PROCESS, args,
+							new AsyncTaskHelper());
+				} else {
+					final String resultURL = parser.getAttributeValue(null, getString(R.string.field_result_url));
+					mProgressTextView.append("FINISHED!\n");
+					Button download = (Button) findViewById(R.id.button_download);
+					download.setVisibility(View.VISIBLE);
+					uploadView.setVisibility(View.GONE);
+					download.setOnClickListener(new OnClickListener() {
+						@Override
+						public void onClick(View v) {
+							launchDownload(resultURL);
+						}
+					});
+				}
+				// Date statusChangeTime =
+				// getDate(parser.getAttributeValue(null,
+				// getString(R.string.field_status_change_time)));
+				 int fileCount =
+				 Integer.parseInt(parser.getAttributeValue(null,
+				 getString(R.string.field_files_count)));
+				// int credits = Integer.parseInt(parser.getAttributeValue(null,
+				// getString(R.string.field_credits)));
+				//
+				// String description = parser.getAttributeValue(null,
+				// getString(R.string.field_description));
+				// String error = parser.getAttributeValue(null,
+				// getString(R.string.field_error));
+
 			}
 		}
 	}
@@ -144,46 +176,62 @@ public class MainActivity extends ActionBarActivity {
 		return date;
 	}
 
-	private class ConnectionHelper implements LoaderCallbacks<InputStream> {
-
-		@Override
-		public Loader<InputStream> onCreateLoader(int id, Bundle args) {
-			return new AsyncInputStreamLoader(MainActivity.this, args);
-		}
-
-		@Override
-		public void onLoadFinished(Loader<InputStream> loader,
-				InputStream inputStream) {
-			parseResponse(inputStream);
-		}
-
-		@Override
-		public void onLoaderReset(Loader<InputStream> loader) {
-		}
+	private String getFilePath() {
+		String[] projection = { MediaStore.Images.Media.DATA };
+		CursorLoader loader = new CursorLoader(this, mUri, projection, null,
+				null, null);
+		Cursor cursor = loader.loadInBackground();
+		cursor.moveToFirst();
+		String result = cursor.getString(cursor
+				.getColumnIndexOrThrow(MediaStore.Images.Media.DATA));
+		return result;
 	}
-	
-	private class TaskProcessHelper implements LoaderCallbacks<String>{
+
+	private void launchTask() {
+		String filePath = getFilePath();
+
+		Bundle args = new Bundle();
+		args.putString(AsyncInputStreamLoader.ARGUMENT_FILE_PATH, filePath);
+		if (mTaskId != null) {
+			args.putString(AsyncInputStreamLoader.ARGUMENT_TASK_ID, mTaskId);
+		}
+		getSupportLoaderManager()
+				.restartLoader(LOADER_CONNECTION, args, new AsyncTaskHelper());
+	}
+
+	private void launchDownload(String url) {
+		Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+		startActivity(intent);
+	}
+
+	private class AsyncTaskHelper implements LoaderCallbacks<String> {
 
 		@Override
 		public Loader<String> onCreateLoader(int id, Bundle args) {
-			return new AsyncTaskProcess(MainActivity.this, args);
+			Loader<String> loader = null;
+			switch(id){
+			case LOADER_CONNECTION:
+				loader = new AsyncInputStreamLoader(MainActivity.this, args);
+				break;
+			case LOADER_PROCESS:
+				loader = new AsyncTaskProcess(MainActivity.this, args);
+				break;
+			}
+			return loader;
 		}
 
 		@Override
-		public void onLoadFinished(Loader<String> loader, final String response) {
-			if(response.equals("")){
-				
-			}else{
-				mProgressTextView.append("FINISHED!\n");
-				Button download = (Button) findViewById(R.id.button_download);
-				download.setVisibility(View.VISIBLE);
-				download.setOnClickListener(new OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(response));
-						startActivity(intent);
-					}
-				});
+		public void onLoadFinished(Loader<String> loader,
+				String response) {
+			switch(loader.getId()){
+			case LOADER_CONNECTION:
+				parseResponse(response);
+				break;
+			case LOADER_PROCESS:
+				if (response.equals("")) {
+					launchTask();
+				}
+				break;
 			}
 		}
 

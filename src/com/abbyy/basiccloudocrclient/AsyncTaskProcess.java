@@ -16,6 +16,8 @@ public class AsyncTaskProcess extends AsyncTaskLoader<String> {
 	public AsyncTaskProcess(Context context, Bundle args) {
 		super(context);
 		mTaskId = args.getString(ARGUMENT_TASK_ID);
+		mStatus = args.getString(ARGUMENT_STATUS);
+		mProcessingTime = args.getInt(ARGUMENT_PROCESSING_TIME);
 	}
 	
 	@Override

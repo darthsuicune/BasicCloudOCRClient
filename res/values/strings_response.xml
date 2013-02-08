@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tag_response">"response"</string>
+    <string name="tag_task">"task"</string>
+    <string name="tag_error">"error"</string>
+    <string name="tag_message">"message"</string>
+    <string name="field_id">"id"</string>
+    <string name="field_registration_time">"registrationTime"</string>
+    <string name="field_status_change_time">"statusChangeTime"</string>
+    <string name="field_status">"status"</string>
+    <string name="field_files_count">"filesCount"</string>
+    <string name="field_credits">"credits"</string>
+    <string name="field_estimated_processing_time">"estimatedProcessingTime"</string>
+    <string name="field_description">"description"</string>
+    <string name="field_result_url">"resultUrl"</string>
+    <string name="field_error">"error"</string>
+    <string name="field_message">""</string>
+    <string name="status_queued">"Queued"</string>
+    <string name="status_in_progress">"InProgress"</string>
+    <string name="status_completed">"Completed"</string>
+    <string name="status_submitted">"Submitted"</string>
+    <string name="status_processing_failed">"ProcessingFailed"</string>
+    <string name="status_deleted">"Deleted"</string>
+    <string name="status_not_enough_credits">"NotEnoughCredits"</string>
+</resources>

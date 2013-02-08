@@ -40,7 +40,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.abbyy.basiccloudclient.R;
+import com.abbyy.basiccloudocrclient.R;
 
 /**
  * A class that implements the action bar pattern for pre-Honeycomb devices.

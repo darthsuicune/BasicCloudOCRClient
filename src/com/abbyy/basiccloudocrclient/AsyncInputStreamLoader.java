@@ -1,8 +1,12 @@
 package com.abbyy.basiccloudocrclient;
 
-import java.io.ByteArrayInputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 
@@ -12,46 +16,61 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.BufferedHttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.content.AsyncTaskLoader;
 
-public class AsyncInputStreamLoader extends AsyncTaskLoader<InputStream> {
+public class AsyncInputStreamLoader extends AsyncTaskLoader<String> {
 	public static final String ARGUMENT_FILE_PATH = "filePath";
+	public static final String ARGUMENT_TASK_ID = "taskId";
+
+	private static final String BASE_URL = "http://cloud.ocrsdk.com/";
 
 	private URL mUrl;
-	private Bundle mArgs;
-	private String mAppId;
-	private String mPassword;
-	private Uri mFilePath;
-
-	private static String test = "<response><task id=\"c3187247-7e81-4d12-8767-bc886c1ab878\" ";
-	private static String test2 = "registrationTime=\"2012-02-16T06:42:09Z\" statusChangeTime=\"2012-02-16T06:42:09Z\"  status=\"Queued\" filesCount=\"1\"  credits=\"0\" estimatedProcessingTime=\"1\" description=\"Image.JPG to .pdf\" />    </response>";
+	private String mFilePath;
+	private String mTaskId;
 
 	public AsyncInputStreamLoader(Context context, Bundle args) {
 		super(context);
 		if (args != null) {
-			mArgs = args;
-			try {
-				mUrl = new URL("http://ocrsdk.com/processImage?exportFormat=pdf");
-			} catch (MalformedURLException e) {
-				e.printStackTrace();
+			mFilePath = args.getString(ARGUMENT_FILE_PATH);
+			mTaskId = args.getString(ARGUMENT_TASK_ID);
+			if (mTaskId == null) {
+				try {
+					mUrl = new URL(BASE_URL + "processImage?exportFormat=rtf");
+				} catch (MalformedURLException e) {
+					e.printStackTrace();
+				}
+			} else {
+				try {
+					mUrl = new URL(BASE_URL + "getTaskStatus?taskId=" + mTaskId);
+				} catch (MalformedURLException e) {
+					e.printStackTrace();
+				}
 			}
-			mFilePath = (Uri) args.getParcelable(ARGUMENT_FILE_PATH);
+
+			mFilePath = args.getString(ARGUMENT_FILE_PATH);
 		}
 	}
 
 	@Override
-	public InputStream loadInBackground() {
-		// return makeConnection();
-		String result = test + "filePath=\"" + mFilePath.toString() + "\"" + test2;
-		return new ByteArrayInputStream(result.getBytes());
+	public String loadInBackground() {
+		return makeConnection();
+		// String result;
+		// if(mTaskId == null) {
+		// result = test + "filePath=\"" + mFilePath.toString() + "\""
+		// + test2;
+		// } else {
+		// result = mTaskId;
+		// }
+		// return new ByteArrayInputStream(result.getBytes());
 	}
 
 	/**
@@ -64,9 +83,9 @@ public class AsyncInputStreamLoader extends AsyncTaskLoader<InputStream> {
 		forceLoad();
 	}
 
-	private InputStream makeConnection() {
-		mAppId = "";
-		mPassword = "";
+	private String makeConnection() {
+		String mAppId = "BasicAndroidCloudOCRClient";
+		String mPassword = "5QQQ0U/Wx+mnkIT51ZLiHREF";
 
 		HttpParams httpParams = new BasicHttpParams();
 		HttpConnectionParams.setConnectionTimeout(httpParams, 10000);
@@ -79,11 +98,26 @@ public class AsyncInputStreamLoader extends AsyncTaskLoader<InputStream> {
 		httpClient.setCredentialsProvider(credentials);
 
 		HttpPost request = new HttpPost(mUrl.toExternalForm());
-		// TODO insert entity with file
+
+		InputStreamEntity entity = null;
 		HttpResponse response = null;
 		try {
-			 response = httpClient.execute(request);
-			return response.getEntity().getContent();
+			entity = new InputStreamEntity(new FileInputStream(new File(mFilePath)), -1);
+			entity.setContentType("application/octet-stream");
+			entity.setChunked(true);
+			BufferedHttpEntity bufferedEntity = new BufferedHttpEntity(entity);
+			request.setEntity(bufferedEntity);
+
+			response = httpClient.execute(request);
+			int code = response.getStatusLine().getStatusCode();
+
+			BufferedReader reader = new BufferedReader(new InputStreamReader(
+					response.getEntity().getContent()));
+			String result = reader.readLine();
+			int i = 0;
+			return result;
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
 		} catch (ClientProtocolException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
